@@ -9,10 +9,7 @@ import org.springframework.stereotype.Service;
 
 import java.io.IOException;
 import java.time.LocalDateTime;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Optional;
-import java.util.Random;
+import java.util.*;
 
 @Service
 public class TransferService {
@@ -76,28 +73,30 @@ public class TransferService {
 
         AccountResponseDto senderAccountDetails = getAccountDetails(transferRequestDto.getSenderAccountNumber());
         AccountResponseDto receiverAccountDetails = getAccountDetails(transferRequestDto.getBeneficiaryAccountNumber());
-        if (senderAccountDetails == null || receiverAccountDetails == null) {
+        if (senderAccountDetails == null || receiverAccountDetails == null || senderAccountDetails.getCustomerId() != null || receiverAccountDetails.getCustomerId() != null) {
             return null;
         }
-        if (senderAccountDetails.getBalance().compareTo(transferEntity.getAmount()) == -1) {
+        if (senderAccountDetails.getBalance().compareTo(transferRequestDto.getAmount()) < 0) {
             return null;
         }
 
-        CustomerProfileResponseDTO customerProfileResponseDTO = getCustomer(senderAccountDetails.getCustomerId());
+        CustomerProfileResponseDTO senderProfileDto = getCustomer(senderAccountDetails.getCustomerId());
+        CustomerProfileResponseDTO receiverProfileDto = getCustomer(receiverAccountDetails.getCustomerId());
 
 
-        if (customerProfileResponseDTO != null) {
-            if (customerProfileResponseDTO.getAccountStatus() == "Active") {
+        if (senderProfileDto != null || receiverProfileDto != null) {
+            if (Objects.equals(senderProfileDto.getAccountStatus(), "Active")) {
                 transferEntity.setAmount(transferRequestDto.getAmount());
                 transferEntity.setTransactionID(randomTransferId());
-                transferEntity.setSenderName(transferRequestDto.getSenderName());
+                transferEntity.setSenderName(senderProfileDto.getName());
                 transferEntity.setSenderAccountNumber(transferRequestDto.getSenderAccountNumber());
-                transferEntity.setBeneficiaryName(transferRequestDto.getBeneficiaryName());
+                transferEntity.setBeneficiaryName(receiverProfileDto.getName());
                 transferEntity.setPaymentMethod(transferRequestDto.getPaymentMethod());
                 transferEntity.setComments(transferRequestDto.getComments());
                 transferEntity.setCurrency(transferRequestDto.getCurrency());
                 transferEntity.setBeneficiaryAccountNumber(transferRequestDto.getBeneficiaryAccountNumber());
                 transferEntity.setDateTime(LocalDateTime.now());
+                transferEntity.setPaymentStatus(PaymentStatus.INITIALIZED);
 
                 transferRepo.save(transferEntity);
 
@@ -136,8 +135,8 @@ public class TransferService {
         }
     }
 
-    public TransferFinalResponseDTO sendTransferDetails(TransferEntity transferEntity){
-        TransferFinalResponseDTO transferFinalResponseDTO= new TransferFinalResponseDTO();
+    public TransferFinalResponseDTO sendTransferDetails(TransferEntity transferEntity) {
+        TransferFinalResponseDTO transferFinalResponseDTO = new TransferFinalResponseDTO();
         transferFinalResponseDTO.setAmount(transferEntity.getAmount());
         transferFinalResponseDTO.setTransferID(transferEntity.getTransactionID());
         transferFinalResponseDTO.setSenderAccountNumber(transferEntity.getSenderAccountNumber());
@@ -146,24 +145,20 @@ public class TransferService {
     }
 
     private CustomerProfileResponseDTO getCustomer(String customerId) {
-        CustomerProfileResponseDTO customerProfileByCustomerId = null;
         try {
-            customerProfileByCustomerId = client.getCustomerProfileByCustomerId(customerId);
+            return client.getCustomerProfileByCustomerId(customerId);
         } catch (IOException e) {
             return null;
         }
-
-        return customerProfileByCustomerId;
     }
 
     private AccountResponseDto getAccountDetails(String accountNumber) {
-        AccountResponseDto accountResponseDto = null;
         try {
-            accountResponseDto = client.getAccountByAccountNumber(accountNumber);
+            return client.getAccountByAccountNumber(accountNumber);
         } catch (Exception e) {
             return null;
         }
-        return accountResponseDto;
+
 
     }
 
@@ -175,7 +170,7 @@ public class TransferService {
         }
     }
 
-    private String randomTransferId(){
+    private String randomTransferId() {
         Random random = new Random();
         int min = 1000;
         int max = 9999;

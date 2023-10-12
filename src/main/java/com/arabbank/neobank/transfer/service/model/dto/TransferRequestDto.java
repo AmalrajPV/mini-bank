@@ -9,10 +9,8 @@ import java.math.BigDecimal;
 @Data
 public class TransferRequestDto {
     private String senderAccountNumber;
-    private String senderName;
     private BigDecimal amount;
     private String beneficiaryAccountNumber;
-    private String beneficiaryName;
     private Currency currency;
     private PaymentMethod paymentMethod;
     private String comments;

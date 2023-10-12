@@ -18,8 +18,8 @@ public class RestClient {
     OkHttpClient client = new OkHttpClient().newBuilder()
             .build();
 
-    private final String CUSTOMER_PROFILE_BASEURL = "http://172.16.4.87:8080";
-    private final String BANK_BASEURL = "http://172.16.4.98:8080";
+    private final String CUSTOMER_PROFILE_BASEURL = "http://172.16.4.87:8080/customer-profile";
+    private final String BANK_BASEURL = "http://172.16.4.98:8080/account";
 
     public CustomerProfileResponseDTO getCustomerProfileByCustomerId(String customerId) throws IOException {
 
@@ -46,9 +46,11 @@ public class RestClient {
         Response response = client.newCall(request).execute();
         if (response.isSuccessful()) {
             ObjectMapper mapper = new ObjectMapper();
+            System.out.println(response.body());
             AccountResponseDto accountDetails = mapper.readValue(response.body().bytes(), AccountResponseDto.class);
             return accountDetails;
         }
+        response.close();
         return null;
     }
 
@@ -56,11 +58,14 @@ public class RestClient {
         MediaType mediaType = MediaType.parse("application/json");
         RequestBody body = RequestBody.create(finalResponseToJson(transferFinalResponseDTO).getBytes(StandardCharsets.UTF_8));
         Request request = new Request.Builder()
-                .url(BANK_BASEURL + "/account/getTransactionInfo")
+                .url(BANK_BASEURL + "/get-transaction")
                 .method("POST", body)
                 .addHeader("Content-Type", "application/json")
                 .build();
         Response response = client.newCall(request).execute();
+        if (!response.isSuccessful()){
+            response.close();
+        }
         //AccountResponseDto accountDetails = mapper.readValue(response.body().bytes(), AccountResponseDto.class);
 
     }
@@ -71,7 +76,7 @@ public class RestClient {
     }
 
 
-    @PostConstruct
+//    @PostConstruct
     public void test() throws IOException {
 //        getAccountByAccountNumber("123456");
         TransferFinalResponseDTO transferFinalResponseDTO = new TransferFinalResponseDTO();
