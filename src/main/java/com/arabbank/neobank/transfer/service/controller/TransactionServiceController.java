@@ -31,7 +31,7 @@ public class TransactionServiceController {
 
 
     @PostMapping("/save-transfer")
-    public TransferResponseDto saveTransaction(@RequestBody TransferRequestDto transferRequestDto) throws IOException {
+    public TransferResponseDto saveTransaction(@RequestBody TransferRequestDto transferRequestDto) throws Exception {
         return transferService.saveTransfer(transferRequestDto);
     }
 

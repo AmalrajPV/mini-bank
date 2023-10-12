@@ -1,5 +1,8 @@
 package com.arabbank.neobank.transfer.service.service;
 
+import com.arabbank.neobank.transfer.service.exception.CustomerProfileInactiveException;
+import com.arabbank.neobank.transfer.service.exception.InsufficientBalanceException;
+import com.arabbank.neobank.transfer.service.exception.UserNotFoundException;
 import com.arabbank.neobank.transfer.service.model.dto.*;
 import com.arabbank.neobank.transfer.service.model.entity.PaymentStatus;
 import com.arabbank.neobank.transfer.service.model.entity.TransferEntity;
@@ -68,16 +71,19 @@ public class TransferService {
         return responseDtoList;
     }
 
-    public TransferResponseDto saveTransfer(TransferRequestDto transferRequestDto) throws IOException {
+    public TransferResponseDto saveTransfer(TransferRequestDto transferRequestDto) throws Exception {
         TransferEntity transferEntity = new TransferEntity();
 
         AccountResponseDto senderAccountDetails = getAccountDetails(transferRequestDto.getSenderAccountNumber());
         AccountResponseDto receiverAccountDetails = getAccountDetails(transferRequestDto.getBeneficiaryAccountNumber());
-        if (senderAccountDetails == null || receiverAccountDetails == null || senderAccountDetails.getCustomerId() != null || receiverAccountDetails.getCustomerId() != null) {
+        if (senderAccountDetails == null || receiverAccountDetails == null || senderAccountDetails.getCustomerId() == null || receiverAccountDetails.getCustomerId() == null) {
+//            throw new UserNotFoundException("Not found");
             return null;
         }
         if (senderAccountDetails.getBalance().compareTo(transferRequestDto.getAmount()) < 0) {
+//            throw new InsufficientBalanceException("Insufficient balance");
             return null;
+
         }
 
         CustomerProfileResponseDTO senderProfileDto = getCustomer(senderAccountDetails.getCustomerId());
@@ -124,6 +130,8 @@ public class TransferService {
             }
         }
         return null;
+
+//        throw new CustomerProfileInactiveException("Customer Inactive");
     }
 
     public void paymentSuccess(String transactionID) {
