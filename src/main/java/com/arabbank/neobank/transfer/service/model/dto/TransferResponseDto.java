@@ -10,8 +10,8 @@ import java.time.LocalDateTime;
 
 @Data
 public class TransferResponseDto {
-    private String accountNumber;
-    private String accountHolderName;
+    private String senderAccountNumber;
+    private String senderName;
     private BigDecimal amount;
     private BigDecimal charges;
     private LocalDateTime dateTime;

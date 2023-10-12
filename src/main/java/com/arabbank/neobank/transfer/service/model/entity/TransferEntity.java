@@ -16,8 +16,9 @@ public class TransferEntity {
     private String id;
     @Indexed(unique = true)
     private String transactionID;
-    private String accountNumber;
-    private String accountHolderName;
+    private String senderAccountNumber;
+    private String customerId;
+    private String senderName;
     private BigDecimal amount;
     private BigDecimal charges;
     private LocalDateTime dateTime;
