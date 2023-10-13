@@ -1,5 +1,6 @@
 package com.arabbank.neobank.transfer.service.controller;
 
+import com.arabbank.neobank.transfer.service.model.dto.AppDetailsDto;
 import com.arabbank.neobank.transfer.service.model.dto.TransferRequestDto;
 import com.arabbank.neobank.transfer.service.model.dto.TransferResponseDto;
 import com.arabbank.neobank.transfer.service.service.TransferService;
@@ -30,9 +31,14 @@ public class TransactionServiceController {
     }
 
 
-    @PostMapping("/save-transfer")
+    @PostMapping("/create-transfer")
     public TransferResponseDto saveTransaction(@RequestBody TransferRequestDto transferRequestDto) throws Exception {
         return transferService.saveTransfer(transferRequestDto);
+    }
+@Deprecated
+    @GetMapping("/app-details")
+    public AppDetailsDto getAppDetails(){
+        return transferService.getAppDetails();
     }
 
 }

@@ -1,33 +1,26 @@
 package com.arabbank.neobank.transfer.service.service;
 
-import com.arabbank.neobank.transfer.service.model.dto.AccountResponseDto;
-import com.arabbank.neobank.transfer.service.model.dto.CustomerProfileResponseDTO;
-import com.arabbank.neobank.transfer.service.model.dto.TransferFinalResponseDTO;
+import com.arabbank.neobank.transfer.service.config.ApplicationConfig;
+import com.arabbank.neobank.transfer.service.model.dto.*;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import okhttp3.*;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
-import javax.annotation.PostConstruct;
 import java.io.IOException;
-import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
 
 @Service
 public class RestClient {
-    OkHttpClient client = new OkHttpClient().newBuilder()
-            .build();
+    @Autowired
+    private ApplicationConfig applicationConfig;
+    OkHttpClient client = new OkHttpClient().newBuilder().build();
 
-    private final String CUSTOMER_PROFILE_BASEURL = "http://172.16.4.87:8080/customer-profile";
-    private final String BANK_BASEURL = "http://172.16.4.98:8080/account";
 
     public CustomerProfileResponseDTO getCustomerProfileByCustomerId(String customerId) throws IOException {
 
-        Request request = new Request.Builder()
-                .url(CUSTOMER_PROFILE_BASEURL + "/customer?customerId=" + customerId)
-                .method("GET", null)
-                .addHeader("accept", "*/*")
-                .build();
+        Request request = new Request.Builder().url(applicationConfig.getCustomerUrl() + "/customer?customerId=" + customerId).method("GET", null).addHeader("accept", "*/*").build();
         Response response = client.newCall(request).execute();
         if (response.isSuccessful()) {
             ObjectMapper mapper = new ObjectMapper();
@@ -38,15 +31,10 @@ public class RestClient {
     }
 
     public AccountResponseDto getAccountByAccountNumber(String accountNumber) throws IOException {
-        Request request = new Request.Builder()
-                .url(BANK_BASEURL + "/get-account?accountNumber=" + accountNumber)
-                .method("GET", null)
-                .addHeader("accept", "*/*")
-                .build();
+        Request request = new Request.Builder().url(applicationConfig.getAccountUrl() + "/get-account?accountNumber=" + accountNumber).method("GET", null).addHeader("accept", "*/*").build();
         Response response = client.newCall(request).execute();
         if (response.isSuccessful()) {
             ObjectMapper mapper = new ObjectMapper();
-            System.out.println(response.body());
             AccountResponseDto accountDetails = mapper.readValue(response.body().bytes(), AccountResponseDto.class);
             return accountDetails;
         }
@@ -57,17 +45,27 @@ public class RestClient {
     public void sendTransferDetails(TransferFinalResponseDTO transferFinalResponseDTO) throws IOException {
         MediaType mediaType = MediaType.parse("application/json");
         RequestBody body = RequestBody.create(finalResponseToJson(transferFinalResponseDTO).getBytes(StandardCharsets.UTF_8));
-        Request request = new Request.Builder()
-                .url(BANK_BASEURL + "/get-transaction")
-                .method("POST", body)
-                .addHeader("Content-Type", "application/json")
-                .build();
+        Request request = new Request.Builder().url(applicationConfig.getAccountUrl() + "/get-transaction").method("POST", body).addHeader("Content-Type", "application/json").build();
         Response response = client.newCall(request).execute();
-        if (!response.isSuccessful()){
+        if (!response.isSuccessful()) {
             response.close();
         }
         //AccountResponseDto accountDetails = mapper.readValue(response.body().bytes(), AccountResponseDto.class);
 
+    }
+
+    public OfferResponseDto sendOfferDetails(OfferRequestDto offerRequestDto) throws IOException {
+        MediaType mediaType = MediaType.parse("application/json");
+        RequestBody body = RequestBody.create(offerResponseToJson(offerRequestDto).getBytes(StandardCharsets.UTF_8));
+        Request request = new Request.Builder().url(applicationConfig.getOfferUrl() + "/offer-discount").method("POST", body).addHeader("Content-Type", "application/json").build();
+        Response response = client.newCall(request).execute();
+        if (response.isSuccessful()) {
+            ObjectMapper mapper = new ObjectMapper();
+            OfferResponseDto offerResponseDto = mapper.readValue(response.body().bytes(), OfferResponseDto.class);
+            return offerResponseDto;
+        }
+        response.close();
+        return null;
     }
 
     public String finalResponseToJson(TransferFinalResponseDTO transferFinalResponseDTO) throws JsonProcessingException {
@@ -75,16 +73,14 @@ public class RestClient {
         return objectMapper.writeValueAsString(transferFinalResponseDTO);
     }
 
+    public String offerResponseToJson(OfferRequestDto offerRequestDto) throws JsonProcessingException {
+        ObjectMapper objectMapper = new ObjectMapper();
+        return objectMapper.writeValueAsString(offerRequestDto);
+    }
 
-//    @PostConstruct
+
+    //    @PostConstruct
     public void test() throws IOException {
-//        getAccountByAccountNumber("123456");
-        TransferFinalResponseDTO transferFinalResponseDTO = new TransferFinalResponseDTO();
-        transferFinalResponseDTO.setTransferID("jgg");
-        transferFinalResponseDTO.setAmount(BigDecimal.valueOf(1222));
-        transferFinalResponseDTO.setReceiverAccountNumber("1233456");
-        transferFinalResponseDTO.setSenderAccountNumber("564798");
-        sendTransferDetails(transferFinalResponseDTO);
 
     }
 }

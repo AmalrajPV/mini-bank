@@ -1,5 +1,6 @@
 package com.arabbank.neobank.transfer.service.service;
 
+import com.arabbank.neobank.transfer.service.config.ApplicationConfig;
 import com.arabbank.neobank.transfer.service.exception.CustomerProfileInactiveException;
 import com.arabbank.neobank.transfer.service.exception.InsufficientBalanceException;
 import com.arabbank.neobank.transfer.service.exception.UserNotFoundException;
@@ -7,6 +8,7 @@ import com.arabbank.neobank.transfer.service.model.dto.*;
 import com.arabbank.neobank.transfer.service.model.entity.PaymentStatus;
 import com.arabbank.neobank.transfer.service.model.entity.TransferEntity;
 import com.arabbank.neobank.transfer.service.repository.TransferRepo;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
@@ -14,6 +16,7 @@ import java.io.IOException;
 import java.time.LocalDateTime;
 import java.util.*;
 
+@Slf4j
 @Service
 public class TransferService {
     @Autowired
@@ -21,6 +24,9 @@ public class TransferService {
 
     @Autowired
     private RestClient client;
+
+    @Autowired
+    private ApplicationConfig applicationConfig;
 
     public TransferResponseDto getByTransactionId(String transactionID) throws Exception {
         Optional<TransferEntity> transferRef = transferRepo.findByTransactionID(transactionID);
@@ -43,7 +49,7 @@ public class TransferService {
 
             return transferResponseDto;
         }
-        throw new Exception("Not found");
+        throw new UserNotFoundException("Not Found");
     }
 
     public List<TransferResponseDto> getByAccountNumberAndAmount(String senderAccountNumber, String dateTime) throws Exception {
@@ -77,13 +83,10 @@ public class TransferService {
         AccountResponseDto senderAccountDetails = getAccountDetails(transferRequestDto.getSenderAccountNumber());
         AccountResponseDto receiverAccountDetails = getAccountDetails(transferRequestDto.getBeneficiaryAccountNumber());
         if (senderAccountDetails == null || receiverAccountDetails == null || senderAccountDetails.getCustomerId() == null || receiverAccountDetails.getCustomerId() == null) {
-//            throw new UserNotFoundException("Not found");
-            return null;
+            throw new UserNotFoundException("My Account Not found");
         }
         if (senderAccountDetails.getBalance().compareTo(transferRequestDto.getAmount()) < 0) {
-//            throw new InsufficientBalanceException("Insufficient balance");
-            return null;
-
+            throw new InsufficientBalanceException("Insufficient balance");
         }
 
         CustomerProfileResponseDTO senderProfileDto = getCustomer(senderAccountDetails.getCustomerId());
@@ -103,6 +106,12 @@ public class TransferService {
                 transferEntity.setBeneficiaryAccountNumber(transferRequestDto.getBeneficiaryAccountNumber());
                 transferEntity.setDateTime(LocalDateTime.now());
                 transferEntity.setPaymentStatus(PaymentStatus.INITIALIZED);
+//
+                OfferResponseDto offer = client.sendOfferDetails(new OfferRequestDto(transferRequestDto.getAmount(), senderAccountDetails.getCustomerId()));
+
+                if (offer != null) {
+                    System.out.println(offer.getAmount());
+                }
 
                 transferRepo.save(transferEntity);
 
@@ -111,7 +120,31 @@ public class TransferService {
                 transferFinalResponseDTO.setAmount(transferEntity.getAmount());
                 transferFinalResponseDTO.setSenderAccountNumber(transferEntity.getSenderAccountNumber());
                 transferFinalResponseDTO.setReceiverAccountNumber(transferEntity.getBeneficiaryAccountNumber());
-                client.sendTransferDetails(transferFinalResponseDTO);
+                try {
+                    client.sendTransferDetails(transferFinalResponseDTO);
+                } catch (Exception e) {
+                    transferEntity.setPaymentStatus(PaymentStatus.FAILED);
+                    transferRepo.save(transferEntity);
+                    TransferResponseDto transferResponseDto = new TransferResponseDto();
+                    transferResponseDto.setAmount(transferEntity.getAmount());
+                    transferResponseDto.setTransactionID(transferEntity.getTransactionID());
+                    transferResponseDto.setSenderName(transferEntity.getSenderName());
+                    transferResponseDto.setSenderAccountNumber(transferEntity.getSenderAccountNumber());
+                    transferResponseDto.setBeneficiaryName(transferEntity.getBeneficiaryName());
+                    transferResponseDto.setPaymentMethod(transferEntity.getPaymentMethod());
+                    transferResponseDto.setComments(transferEntity.getComments());
+                    transferResponseDto.setCurrency(transferEntity.getCurrency());
+                    transferResponseDto.setCharges(transferEntity.getCharges());
+                    transferResponseDto.setBeneficiaryAccountNumber(transferEntity.getBeneficiaryAccountNumber());
+                    transferResponseDto.setDateTime(transferEntity.getDateTime());
+                    transferResponseDto.setPaymentStatus(transferEntity.getPaymentStatus());
+                    log.info("Transaction : " + transferResponseDto.toString());
+                    return transferResponseDto;
+                }
+
+                transferEntity.setPaymentStatus(PaymentStatus.SUCCESS);
+
+                transferRepo.save(transferEntity);
 
                 TransferResponseDto transferResponseDto = new TransferResponseDto();
                 transferResponseDto.setAmount(transferEntity.getAmount());
@@ -126,12 +159,13 @@ public class TransferService {
                 transferResponseDto.setBeneficiaryAccountNumber(transferEntity.getBeneficiaryAccountNumber());
                 transferResponseDto.setDateTime(transferEntity.getDateTime());
                 transferResponseDto.setPaymentStatus(transferEntity.getPaymentStatus());
+                log.info("Transaction : " + transferResponseDto.toString());
                 return transferResponseDto;
             }
         }
-        return null;
+//        return null;
 
-//        throw new CustomerProfileInactiveException("Customer Inactive");
+        throw new CustomerProfileInactiveException("Customer Inactive");
     }
 
     public void paymentSuccess(String transactionID) {
@@ -143,13 +177,11 @@ public class TransferService {
         }
     }
 
-    public TransferFinalResponseDTO sendTransferDetails(TransferEntity transferEntity) {
-        TransferFinalResponseDTO transferFinalResponseDTO = new TransferFinalResponseDTO();
-        transferFinalResponseDTO.setAmount(transferEntity.getAmount());
-        transferFinalResponseDTO.setTransferID(transferEntity.getTransactionID());
-        transferFinalResponseDTO.setSenderAccountNumber(transferEntity.getSenderAccountNumber());
-        transferFinalResponseDTO.setReceiverAccountNumber(transferEntity.getBeneficiaryAccountNumber());
-        return transferFinalResponseDTO;
+    public AppDetailsDto getAppDetails() {
+        AppDetailsDto appDetailsDto = new AppDetailsDto();
+        appDetailsDto.setName(applicationConfig.getName());
+        appDetailsDto.setVersion(applicationConfig.getVersion());
+        return appDetailsDto;
     }
 
     private CustomerProfileResponseDTO getCustomer(String customerId) {
